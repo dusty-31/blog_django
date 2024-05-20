@@ -1,0 +1,41 @@
+version: "3.7"
+
+services:
+  django:
+    container_name: django_blog
+    build:
+      context: ..
+      dockerfile: docker/images/django/Dockerfile
+    env_file:
+      - envs/django.env
+    command: gunicorn -b 0.0.0.0:8000 "blog_django.wsgi:application" -w 4 -t 300
+    volumes:
+      - ../blog_django:/src/blog_django
+      - ../users:/src/users
+      - ../blog:/src/blog
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "localhost:8000/admin" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    ports:
+      - "8000:8000"
+  db:
+    container_name: db
+    image: postgres:15.2-alpine
+    env_file:
+      - envs/postgres.env
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U blog_django -d blog_django" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
